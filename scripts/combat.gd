@@ -30,6 +30,19 @@ const THRUST_WINDUP := 1.0
 const THRUST_DASH_SECONDS := .32
 const BOSS_DAMAGE := {"slash": 27.0, "slam": 48.0, "thrust": 42.0}
 const SKILL_COOLDOWN := 8.0
+const WEAPON_SWITCH_DURATION := 0.62
+const WEAPON_SWITCH_COMMIT := 0.50
+const BOW_SHOT_DURATION := 1.05
+const BOW_RELEASE_TIME := 0.72
+const BOW_SKILL_DURATION := 1.70
+const BOW_SKILL_SHOTS := [0.92, 1.14, 1.36]
+const ARROW_SPEED := 24.0
+const ARROW_GRAVITY := 4.5
+const ARROW_DAMAGE := 37.0
+const BOW_SKILL_ARROW_DAMAGE := 35.0
+const ARROW_STICK_SECONDS := 4.0
+const ARROW_FADE_SECONDS := 0.8
+const MAX_ARROWS := 48
 
 var player: CharacterBody3D
 var boss: CharacterBody3D
@@ -46,6 +59,8 @@ var locked := false
 var parries := 0
 var combo := 0
 var player_state := "idle"
+var weapon_mode := "sword"
+var pending_weapon := "sword"
 var boss_state := "idle"
 var player_time := 0.0
 var boss_time := 0.0
@@ -85,6 +100,12 @@ var _boss_start := Vector3.ZERO
 var _thrust_travel := 0.0
 var _warning_polygon := PackedVector3Array()
 var _next_wave_id := 0
+var arrows: Array[Dictionary] = []
+var _next_arrow_id := 0
+var _bow_shots_fired := 0
+var _bow_landed := false
+var _bow_skill_direction := Vector3.FORWARD
+var _bow_skill_target := Vector3.ZERO
 
 
 func setup(view_camera: Camera3D) -> void:
@@ -143,6 +164,10 @@ func restart() -> void:
 	locked = false
 	ended = false
 	player_state = "idle"
+	weapon_mode = "sword"
+	pending_weapon = "sword"
+	_bow_shots_fired = 0
+	_bow_landed = false
 	boss_state = "idle"
 	boss_action = ""
 	player_time = 0.0
@@ -159,6 +184,7 @@ func restart() -> void:
 	_shake_velocity = Vector3.ZERO
 	_shockwaves.clear()
 	projectiles.clear()
+	arrows.clear()
 	simulation_time = 0.0
 	encounter_generation += 1
 	_manual_move = Vector3.ZERO
@@ -173,14 +199,17 @@ func snapshot() -> Dictionary:
 		"boss_hp": boss_hp, "boss_max_hp": BOSS_HP, "skill_cd": skill_cd, "heals": heals,
 		"locked": locked, "boss_state": boss_state, "player_state": player_state,
 		"parries": parries, "combo": combo, "boss_phase": 2 if boss_hp <= BOSS_HP * 0.5 else 1,
-		"boss_action": boss_action, "ended": ended}
+		"boss_action": boss_action, "ended": ended, "weapon_mode": weapon_mode,
+		"pending_weapon": pending_weapon}
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _ready_to_play or ended or get_tree().paused:
 		return
 	if event.is_action_pressed("attack"):
-		request_player_action("parry" if Input.is_action_pressed("block") else "attack")
+		request_player_action("parry" if weapon_mode == "sword" and Input.is_action_pressed("block") else "attack")
+	elif event.is_action_pressed("switch_weapon"):
+		request_player_action("switch_weapon")
 	elif event.is_action_pressed("dodge"):
 		request_player_action("dodge")
 	elif event.is_action_pressed("skill"):
@@ -196,6 +225,7 @@ func request_player_action(action: String) -> bool:
 	if not _ready_to_play or ended:
 		return false
 	if action == "block":
+		if weapon_mode != "sword": return false
 		_manual_block = true
 		return true
 	if action == "release_block":
@@ -206,12 +236,26 @@ func request_player_action(action: String) -> bool:
 			_attack_buffer = true
 			return true
 		return false
-	if player_state not in ["idle", "move", "block"]:
+	# Nocking/drawing is cancellable. Once the arrow is loose the short recovery
+	# is committed, just like a sword strike. Failed rolls do not cancel a draw.
+	var can_cancel_draw := player_state == "bow_shot" and player_time < BOW_RELEASE_TIME
+	if player_state not in ["idle", "move", "block"] and not (can_cancel_draw and action in ["dodge", "switch_weapon"]):
 		return false
 	_update_player_facing(1.0)
 	match action:
+		"switch_weapon":
+			pending_weapon = "bow" if weapon_mode == "sword" else "sword"
+			_manual_block = false
+			_set_player_state("weapon_switch")
+			combat_event.emit("weapon_switch", player.position + Vector3.UP, player_direction, WEAPON_SWITCH_DURATION)
 		"attack":
 			combo = 0
+			if weapon_mode == "bow":
+				if not _spend_stamina(14.0): return false
+				_bow_shots_fired = 0
+				_set_player_state("bow_shot")
+				combat_event.emit("bow_draw", player.position + Vector3.UP * 1.35, player_direction, BOW_RELEASE_TIME)
+				return true
 			return _begin_player_attack()
 		"dodge":
 			if not _spend_stamina(26.0):
@@ -224,6 +268,7 @@ func request_player_action(action: String) -> bool:
 			_set_player_state("dodge")
 			combat_event.emit("dodge", player.position, dodge_direction, PLAYER_DURATION.dodge * ACTION_SCALE)
 		"parry":
+			if weapon_mode != "sword": return false
 			if not _spend_stamina(16.0):
 				return false
 			_set_player_state("parry")
@@ -231,7 +276,14 @@ func request_player_action(action: String) -> bool:
 			if skill_cd > 0.0 or not _spend_stamina(36.0):
 				return false
 			skill_cd = SKILL_COOLDOWN
-			_set_player_state("skill")
+			if weapon_mode == "bow":
+				_bow_shots_fired = 0
+				_bow_landed = false
+				_bow_skill_direction = player_direction
+				_bow_skill_target = _arrow_aim_target(player_direction)
+				_set_player_state("bow_skill")
+			else:
+				_set_player_state("skill")
 		"heal":
 			if heals <= 0 or hp >= PLAYER_HP:
 				return false
@@ -273,6 +325,8 @@ func _physics_process(delta: float) -> void:
 	_tick_shockwaves(delta)
 	if ended: return
 	_tick_projectiles(delta)
+	if ended: return
+	_tick_arrows(delta)
 	if _stamina_delay <= 0.0 and player_state in ["idle", "move", "block"]:
 		stamina = minf(MAX_STAMINA, stamina + delta * (8.0 if player_state == "block" else 24.0))
 	_update_visuals(delta)
@@ -286,13 +340,37 @@ func _tick_player(delta: float, move: Vector3) -> void:
 	var horizontal := Vector3.ZERO
 	var free := player_state in ["idle", "move", "block"]
 	if free:
-		var blocking := _manual_block or Input.is_action_pressed("block")
+		var blocking := weapon_mode == "sword" and (_manual_block or Input.is_action_pressed("block"))
 		player_state = "block" if blocking else ("move" if move.length_squared() > 0.01 else "idle")
 		horizontal = move * (MOVE_SPEED * 0.40 if blocking else MOVE_SPEED)
 		_update_player_facing(delta)
 	else:
 		var progress := clampf(player_time / _player_duration(), 0.0, 1.0)
 		match player_state:
+			"weapon_switch":
+				horizontal = move * MOVE_SPEED * 0.60
+				_update_player_facing(delta)
+				if progress >= WEAPON_SWITCH_COMMIT:
+					weapon_mode = pending_weapon
+			"bow_shot":
+				horizontal = move * MOVE_SPEED * 0.40
+				if _bow_shots_fired == 0:
+					_update_player_facing(delta)
+					if player_time >= BOW_RELEASE_TIME:
+						_bow_shots_fired = 1
+						_launch_arrow(false)
+			"bow_skill":
+				if player_time >= 0.12 and player_time < 0.70:
+					# Backward travel follows the committed cast direction and uses the
+					# same capsule collision as a normal roll; the visual supplies lift.
+					var airborne := (player_time - 0.12) / 0.58
+					horizontal = -_bow_skill_direction * (4.6 * sin(airborne * PI))
+				if player_time >= 0.70 and not _bow_landed:
+					_bow_landed = true
+					combat_event.emit("bow_land", player.position, _bow_skill_direction, 1.0)
+				while _bow_shots_fired < BOW_SKILL_SHOTS.size() and player_time >= BOW_SKILL_SHOTS[_bow_shots_fired]:
+					_bow_shots_fired += 1
+					_launch_arrow(true)
 			"dodge":
 				horizontal = dodge_direction * lerpf(9.4, 1.6, smoothstep(0.16, 1.0, progress)) / ACTION_SCALE
 			"attack":
@@ -371,12 +449,19 @@ func _mouse_direction() -> Vector3:
 
 
 func _player_duration() -> float:
+	if player_state == "weapon_switch": return WEAPON_SWITCH_DURATION
+	if player_state == "bow_shot": return BOW_SHOT_DURATION
+	if player_state == "bow_skill": return BOW_SKILL_DURATION
 	if player_state == "attack":
 		return COMBO_DURATION[combo] * ACTION_SCALE
 	return PLAYER_DURATION.get(player_state, 1.0) * ACTION_SCALE
 
 
 func _set_player_state(next: String) -> void:
+	if player_state == "weapon_switch" and next != "weapon_switch":
+		# Hurt before the midpoint keeps the old weapon; hurt afterwards keeps
+		# the new one. Never leave an invisible or half-swapped weapon equipped.
+		pending_weapon = weapon_mode
 	player_state = next
 	player_time = 0.0
 	_player_hit = false
@@ -575,6 +660,8 @@ func _receive_player_hit(damage: float, origin: Vector3, parryable: bool, heavy:
 		return
 	if player_state == "dodge" and player_time >= 0.09 * ACTION_SCALE and player_time <= 0.43 * ACTION_SCALE:
 		return
+	if player_state == "bow_skill" and player_time >= 0.18 and player_time <= 0.56:
+		return
 	var toward := _flat_direction(player.position, origin)
 	var frontal := player_direction.dot(toward) > 0.45
 	if parryable and frontal and player_state == "parry" and player_time >= PARRY_OPEN and player_time <= PARRY_CLOSE:
@@ -618,6 +705,8 @@ func _end_encounter(victory: bool) -> void:
 	ended = true
 	_shockwaves.clear()
 	projectiles.clear()
+	arrows.clear()
+	pending_weapon = weapon_mode
 	player.velocity = Vector3.ZERO
 	boss.velocity = Vector3.ZERO
 	if victory:
@@ -651,6 +740,8 @@ func _clear_path(from: Vector3, to: Vector3) -> bool:
 
 func _update_visuals(delta: float) -> void:
 	if is_instance_valid(player_visual):
+		if player_visual.has_method("set_weapon_state"):
+			player_visual.set_weapon_state(weapon_mode, pending_weapon)
 		var visual_direction := dodge_direction if player_state == "dodge" else player_direction
 		player_visual.rotation.y = atan2(-visual_direction.x, -visual_direction.z)
 		var pose := player_state
@@ -700,6 +791,124 @@ func _launch_projectile() -> void:
 	projectiles.append({"id": _next_projectile_id, "at": at, "previous": at, "direction": player_direction,
 		"traveled": 0.0, "age": 0.0, "radius": PROJECTILE_RADIUS, "trail": PackedVector3Array([at])})
 	combat_event.emit("projectile", at, player_direction, PROJECTILE_DISTANCE)
+
+
+func _arrow_aim_target(direction: Vector3) -> Vector3:
+	if locked and boss_hp > 0.0:
+		return boss.global_position + Vector3.UP * 1.35
+	if is_instance_valid(camera):
+		var cursor := get_viewport().get_mouse_position()
+		var target = Plane(Vector3.UP, player.global_position.y + 0.04).intersects_ray(camera.project_ray_origin(cursor), camera.project_ray_normal(cursor))
+		if target != null:
+			var offset: Vector3 = target - player.global_position
+			offset.y = 0.0
+			if offset.length() >= 1.1:
+				return player.global_position + offset.limit_length(40.0) + Vector3.UP * 0.04
+	return player.global_position + direction * 18.0 + Vector3.UP * 0.04
+
+
+func _launch_arrow(skill: bool) -> void:
+	var facing := _bow_skill_direction if skill else player_direction
+	var target := _bow_skill_target if skill else _arrow_aim_target(facing)
+	var shoulder := player.global_position + Vector3.UP * 1.32
+	var at := shoulder + facing * 0.70
+	var displacement := target - at
+	var flat := Vector3(displacement.x, 0.0, displacement.z)
+	var flight_seconds := maxf(flat.length() / ARROW_SPEED, 0.06)
+	var velocity := flat.normalized() * ARROW_SPEED
+	velocity.y = displacement.y / flight_seconds + 0.5 * ARROW_GRAVITY * flight_seconds
+	_next_arrow_id += 1
+	var arrow := {"id": _next_arrow_id, "at": at, "previous": shoulder,
+		"velocity": velocity, "direction": velocity.normalized(), "age": 0.0,
+		"trail": PackedVector3Array([at]), "stuck": false, "stuck_age": 0.0,
+		"fade": 1.0, "attached_to": "", "skill": skill,
+		"damage": BOW_SKILL_ARROW_DAMAGE if skill else ARROW_DAMAGE}
+	# Test the short shoulder-to-tip segment as well, so firing while pressed
+	# against a wall cannot spawn the arrow through its far face.
+	var initial_hit := _arrow_collision(shoulder, at)
+	if not initial_hit.is_empty():
+		_stick_arrow(arrow, initial_hit)
+	if ended: return
+	if arrows.size() >= MAX_ARROWS:
+		arrows.pop_front()
+	arrows.append(arrow)
+	combat_event.emit("bow_release", at, velocity.normalized(), 1.0 if skill else 0.0)
+
+
+func _arrow_collision(from: Vector3, to: Vector3) -> Dictionary:
+	var space := get_world_3d().direct_space_state
+	var wall_query := PhysicsRayQueryParameters3D.create(from, to, 1)
+	wall_query.hit_from_inside = true
+	var wall := space.intersect_ray(wall_query)
+	var body_query := PhysicsRayQueryParameters3D.create(from, to, 2, [player.get_rid()])
+	body_query.hit_from_inside = true
+	var target := space.intersect_ray(body_query)
+	# Resolve the entire previous-tip to next-tip segment. Environment wins
+	# equal distances, including a boss capsule touching the rear of a wall.
+	if not wall.is_empty() and (target.is_empty() or from.distance_squared_to(wall.position) <= from.distance_squared_to(target.position) + 0.0001):
+		return wall
+	return target
+
+
+func _boss_arrow_basis() -> Basis:
+	return Basis(Vector3.UP, atan2(-boss_direction.x, -boss_direction.z))
+
+
+func _stick_arrow(arrow: Dictionary, hit: Dictionary) -> void:
+	arrow.at = hit.position
+	arrow.stuck = true
+	arrow.stuck_age = 0.0
+	arrow.fade = 1.0
+	arrow.trail = PackedVector3Array()
+	if hit.get("collider") == boss and boss_hp > 0.0:
+		arrow.attached_to = "boss"
+		var basis := _boss_arrow_basis()
+		arrow.local_at = basis.inverse() * (arrow.at - boss.global_position)
+		arrow.local_direction = basis.inverse() * arrow.direction
+		var damage: float = arrow.damage * (1.25 if boss_state == "stagger" else 1.0)
+		boss_hp = maxf(boss_hp - damage, 0.0)
+		combat_event.emit("hit", arrow.at, arrow.direction, damage)
+		combat_event.emit("arrow_hit", arrow.at, arrow.direction, damage)
+		_hit_stop = maxf(_hit_stop, 0.025)
+		if boss_hp <= 0.0:
+			_end_encounter(true)
+	else:
+		combat_event.emit("arrow_hit", arrow.at, arrow.direction, 0.0)
+
+
+func _tick_arrows(delta: float) -> void:
+	for index in range(arrows.size() - 1, -1, -1):
+		var arrow := arrows[index]
+		arrow.age += delta
+		if arrow.stuck:
+			arrow.stuck_age += delta
+			if arrow.attached_to == "boss":
+				var basis := _boss_arrow_basis()
+				arrow.at = boss.global_position + basis * arrow.local_at
+				arrow.direction = (basis * arrow.local_direction).normalized()
+			arrow.fade = 1.0 - clampf((arrow.stuck_age - ARROW_STICK_SECONDS) / ARROW_FADE_SECONDS, 0.0, 1.0)
+			if arrow.stuck_age >= ARROW_STICK_SECONDS + ARROW_FADE_SECONDS:
+				arrows.remove_at(index)
+			continue
+		arrow.previous = arrow.at
+		var acceleration := Vector3.DOWN * ARROW_GRAVITY
+		var next: Vector3 = arrow.at + arrow.velocity * delta + acceleration * (0.5 * delta * delta)
+		arrow.velocity += acceleration * delta
+		arrow.direction = arrow.velocity.normalized()
+		var hit := _arrow_collision(arrow.previous, next)
+		if not hit.is_empty():
+			_stick_arrow(arrow, hit)
+			if ended: return
+		else:
+			arrow.at = next
+			var trail: PackedVector3Array = arrow.trail
+			trail.insert(0, next)
+			if trail.size() > 12: trail.resize(12)
+			arrow.trail = trail
+			# A safety bound only handles shots outside the authored world.
+			# Ordinary missed arrows use gravity and stick in the real ground.
+			if arrow.age > 6.0 or arrow.at.y < -15.0:
+				arrows.remove_at(index)
 
 
 func _sweep_fraction(at: Vector3, motion: Vector3, mask: int) -> float:
@@ -798,4 +1007,4 @@ func visual_state() -> Dictionary:
 			"position": boss.position, "direction": boss_direction}
 	return {"generation": encounter_generation, "time": simulation_time, "ended": ended,
 		"warning": warning, "boss_active": boss_active,
-		"projectiles": projectiles, "shockwaves": _shockwaves}
+		"projectiles": projectiles, "arrows": arrows, "shockwaves": _shockwaves}

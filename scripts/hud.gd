@@ -29,6 +29,7 @@ var finished = false
 var notice_time = 0.0
 var notice: Label
 var resume_button: Button
+var weapon_text: Label
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -159,6 +160,8 @@ func _build_hud() -> void:
 	abilities.offset_top = -124
 	abilities.offset_bottom = -42
 	abilities.add_theme_constant_override("separation", 10)
+	weapon_text = _label("剑盾", 16, GOLD)
+	abilities.add_child(weapon_text)
 	skill_text = _label("霜誓斩  ·  就绪", 18, Color("b6e0d8"))
 	abilities.add_child(skill_text)
 	flask_text = _label("圣露  3", 18, GOLD)
@@ -258,11 +261,14 @@ func apply_stats(data: Dictionary) -> void:
 	if new_hp > boss_hp.value: boss_trail.value = new_hp
 	boss_hp.value = new_hp
 	var cd = float(data.get("skill_cd", 0))
-	skill_text.text = "霜誓斩  ·  %.1f" % cd if cd > 0 else "霜誓斩  ·  就绪"
+	var bow := str(data.get("weapon_mode", "sword")) == "bow"
+	weapon_text.text = "长弓" if bow else "剑盾"
+	var skill_name := "燕返连矢" if bow else "霜誓斩"
+	skill_text.text = skill_name + ("  ·  %.1f" % cd if cd > 0 else "  ·  就绪")
 	flask_text.text = "圣露  %d" % int(data.get("heals", 3))
 	lock_text.text = "锁定目标" if bool(data.get("locked", false)) else ""
 	var state = str(data.get("player_state", "idle"))
-	var names = {"block": "防御", "parry": "盾反", "stagger": "失衡", "heal": "饮露", "skill": "霜誓斩"}
+	var names = {"block": "防御", "parry": "盾反", "stagger": "失衡", "heal": "饮露", "skill": "霜誓斩", "weapon_switch": "换装", "bow_shot": "引弓", "bow_skill": "燕返连矢"}
 	status.text = names.get(state, "")
 
 func announce(text: String) -> void:

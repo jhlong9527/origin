@@ -24,6 +24,10 @@ var rendered_projectiles := 0
 var rendered_waves := 0
 var eye_history := PackedVector3Array()
 var eye_sample_time := -1.0
+const ARROW_POOL_SIZE := 48
+var arrow_pool: Array[Node3D] = []
+var arrow_meshes: Array[Array] = []
+var rendered_arrows := 0
 
 func _ready() -> void:
 	rng.seed = 84324
@@ -59,6 +63,7 @@ func _ready() -> void:
 	danger_instance.material_override = _material(Color.WHITE, true)
 	danger_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(danger_instance)
+	_build_arrow_pool()
 	for i in 16:
 		var mesh = ImmediateMesh.new()
 		var instance = MeshInstance3D.new()
@@ -72,7 +77,7 @@ func _ready() -> void:
 		var player = AudioStreamPlayer.new()
 		add_child(player)
 		audio_pool.append(player)
-	for kind in ["swing", "hit", "hurt", "block", "guard_break", "parry", "dodge", "skill", "projectile", "projectile_impact", "boss_swing", "boss_telegraph", "boss_parry_ready", "slam", "shockwave", "heal", "death", "victory", "empty"]:
+	for kind in ["swing", "hit", "hurt", "block", "guard_break", "parry", "dodge", "skill", "projectile", "projectile_impact", "boss_swing", "boss_telegraph", "boss_parry_ready", "slam", "shockwave", "heal", "death", "victory", "empty", "weapon_switch", "bow_draw", "bow_release", "arrow_hit", "bow_land"]:
 		sounds[kind] = _synthesize(kind)
 
 func _material(color: Color, vertex: bool = false) -> StandardMaterial3D:
@@ -117,6 +122,16 @@ func feedback(kind: String, at: Vector3, direction: Vector3, amount: float = 0.0
 		"skill":
 			count = 24
 			color = Color("a9eff0")
+		"bow_release":
+			count = 5 if amount > 0 else 2
+			color = Color("d3f5e2") if amount > 0 else Color("dad3b2")
+		"arrow_hit":
+			count = 9 if amount > 0 else 4
+			color = Color("e4c09a")
+		"bow_land":
+			count = 12
+			color = Color("b2b5a0")
+			_ring(at, "impact", .72, .23, Color(.60,.72,.62,.3))
 		"boss_telegraph":
 			pass # Geometry comes from combat.visual_state(), never an autonomous warning timer.
 		"boss_parry_ready":
@@ -258,6 +273,8 @@ func _process(delta: float) -> void:
 		trail_mesh.surface_end()
 
 func clear() -> void:
+	for arrow in arrow_pool: arrow.hide()
+	rendered_arrows = 0
 	for p in particles: p.life = 0.0
 	for i in MAX_SPARKS: sparks.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), Vector3.ZERO))
 	for ring in rings:
@@ -309,11 +326,18 @@ func _render_simulation(state: Dictionary) -> void:
 	rendered_warning = ""
 	rendered_projectiles = 0
 	rendered_waves = 0
+	_render_arrows(state.get("arrows", []))
 	if state.ended: return
 	var warning: Dictionary = state.warning
 	var flying: Array = state.projectiles
 	var waves: Array = state.shockwaves
 	var boss_active: Dictionary = state.get("boss_active", {})
+	var arrows: Array = state.get("arrows", [])
+	var has_arrow_trails := false
+	for arrow in arrows:
+		if not arrow.stuck and arrow.trail.size() > 1:
+			has_arrow_trails = true
+			break
 	if not boss_active.get("glint", false):
 		eye_history.clear()
 		eye_sample_time = -1.0
@@ -323,7 +347,7 @@ func _render_simulation(state: Dictionary) -> void:
 	# surface on surface_end().
 	var has_warning_geometry: bool = not warning.is_empty() and warning.kind != "thrust"
 	var has_boss_geometry: bool = bool(boss_active.get("glint", false)) or bool(boss_active.get("charge", false))
-	if not has_warning_geometry and not has_boss_geometry and flying.is_empty() and waves.is_empty(): return
+	if not has_warning_geometry and not has_boss_geometry and not has_arrow_trails and flying.is_empty() and waves.is_empty(): return
 	danger_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	if not warning.is_empty():
 		rendered_warning = warning.kind
@@ -342,7 +366,55 @@ func _render_simulation(state: Dictionary) -> void:
 	for projectile in flying:
 		_draw_projectile(projectile)
 		rendered_projectiles += 1
+	for arrow in arrows:
+		if not arrow.stuck: _draw_arrow_trail(arrow)
 	danger_mesh.surface_end()
+
+
+func _build_arrow_pool() -> void:
+	var packed := load("res://assets/weapons/arrow.glb") as PackedScene
+	if packed == null: return
+	for i in ARROW_POOL_SIZE:
+		var arrow := packed.instantiate() as Node3D
+		arrow.name = "FlightArrow%d" % i
+		add_child(arrow)
+		arrow.hide()
+		arrow_pool.append(arrow)
+		var meshes: Array = arrow.find_children("*", "MeshInstance3D", true, false)
+		if arrow is MeshInstance3D: meshes.append(arrow)
+		for instance in meshes:
+			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		arrow_meshes.append(meshes)
+
+
+func _render_arrows(arrows: Array) -> void:
+	rendered_arrows = mini(arrows.size(), arrow_pool.size())
+	for i in arrow_pool.size():
+		var node := arrow_pool[i]
+		if i >= rendered_arrows:
+			node.hide()
+			continue
+		var arrow: Dictionary = arrows[i]
+		node.show()
+		var direction: Vector3 = arrow.direction
+		var up := Vector3.RIGHT if absf(direction.dot(Vector3.UP)) > .98 else Vector3.UP
+		node.global_transform = Transform3D(Basis.looking_at(direction, up), arrow.at)
+		for instance in arrow_meshes[i]:
+			instance.transparency = 1.0 - float(arrow.fade)
+
+
+func _draw_arrow_trail(arrow: Dictionary) -> void:
+	var points: PackedVector3Array = arrow.trail
+	var camera := get_viewport().get_camera_3d()
+	var view := camera.global_basis.z if camera else Vector3.UP
+	for i in range(points.size() - 1):
+		var tangent := points[i] - points[i + 1]
+		if tangent.length_squared() < .000001: continue
+		var fade := 1.0 - float(i) / points.size()
+		var side := tangent.normalized().cross(view).normalized()
+		var width := (.032 if arrow.skill else .014) * fade
+		var tint := Color(.52,.96,.86,.55 * fade) if arrow.skill else Color(.91,.91,.74,.38 * fade)
+		_quad(points[i]-side*width, points[i]+side*width, points[i+1]+side*width*.85, points[i+1]-side*width*.85, tint)
 
 
 func _draw_boss_eye_streak(active: Dictionary) -> void:
@@ -511,6 +583,11 @@ func _synthesize(kind: String) -> AudioStreamWAV:
 		filtered = lerpf(filtered, noise, .17)
 		var wave = 0.0
 		match kind:
+			"bow_release": wave = filtered * exp(-t * 19) * 1.4 + sin(TAU * (380 * t - 210 * t * t)) * exp(-t * 32) * .5
+			"bow_draw": wave = filtered * .25 * sin(t * 290) + sin(TAU * (110 * t + 85 * t * t)) * .09
+			"arrow_hit": wave = noise * exp(-t * 75) * .85 + sin(TAU * 185 * t) * exp(-t * 32) * .35
+			"weapon_switch": wave = filtered * .3 * sin(t * 80)
+			"bow_land": wave = filtered * .5 + sin(TAU * 68 * t) * exp(-t * 24) * .65
 			"swing", "boss_swing", "dodge", "skill": wave = filtered * sin(PI * t / duration) * 1.9
 			"block", "parry", "boss_parry_ready":
 				var freq = 950.0 if kind == "parry" else 670.0

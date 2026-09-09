@@ -15,6 +15,10 @@ var flash_amount := 0.0
 var parry_glow := false
 var sword_node: Node3D
 var healing_flask: Node3D
+var bow_node: Node3D
+var quiver_node: Node3D
+var weapon_mode := "sword"
+var pending_weapon := "sword"
 
 
 func setup(boss: bool = false) -> void:
@@ -48,11 +52,49 @@ func setup(boss: bool = false) -> void:
 	_prepare_materials(model, replacements, outline)
 	if not boss:
 		_build_flask(outline)
+		_build_archery_gear(outline)
 	update_pose("idle", 0.0, Vector3.FORWARD, 0.0, 0, 1.0)
 
 
 func configure(boss: bool) -> void:
 	setup(boss)
+
+
+func _build_archery_gear(_outline: ShaderMaterial) -> void:
+	var bow_scene := load("res://assets/weapons/longbow.glb") as PackedScene
+	var quiver_scene := load("res://assets/weapons/quiver.glb") as PackedScene
+	if bow_scene:
+		bow_node = bow_scene.instantiate() as Node3D
+		bow_node.name = "Longbow"
+		(joints["HandR"] as Node3D).add_child(bow_node)
+		bow_node.position = Vector3(0.0, -0.18, -0.03)
+		bow_node.rotation = Vector3(deg_to_rad(-90), 0, deg_to_rad(4))
+		bow_node.scale = Vector3.ONE * 0.72
+		for mesh in bow_node.find_children("*", "MeshInstance3D", true, false):
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	if quiver_scene:
+		quiver_node = quiver_scene.instantiate() as Node3D
+		quiver_node.name = "Quiver"
+		(joints["Hips"] as Node3D).add_child(quiver_node)
+		quiver_node.position = Vector3(-0.20, 0.18, 0.16)
+		quiver_node.rotation = Vector3(deg_to_rad(-16), deg_to_rad(-18), deg_to_rad(12))
+		quiver_node.scale = Vector3.ONE * 0.78
+		for mesh in quiver_node.find_children("*", "MeshInstance3D", true, false):
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_set_gear_visibility("sword")
+
+
+func set_weapon_state(mode: String, pending: String = "") -> void:
+	if is_boss: return
+	weapon_mode = mode if mode in ["sword", "bow"] else "sword"
+	if pending != "": pending_weapon = pending
+	_set_gear_visibility(weapon_mode)
+
+
+func _set_gear_visibility(mode: String) -> void:
+	if is_instance_valid(sword_node): sword_node.visible = mode == "sword"
+	if is_instance_valid(bow_node): bow_node.visible = mode == "bow"
+	if is_instance_valid(quiver_node): quiver_node.visible = mode == "bow"
 
 
 func _build_flask(outline: ShaderMaterial) -> void:

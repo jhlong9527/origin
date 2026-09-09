@@ -104,6 +104,11 @@ func _inputs() -> void:
 		mouse.button_index = MOUSE_BUTTON_LEFT if action == "attack" else MOUSE_BUTTON_RIGHT
 		InputMap.action_add_event(action, mouse)
 	if not InputMap.has_action("parry"): InputMap.add_action("parry")
+	if not InputMap.has_action("switch_weapon"): InputMap.add_action("switch_weapon")
+	for button in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var wheel := InputEventMouseButton.new()
+		wheel.button_index = button
+		InputMap.action_add_event("switch_weapon", wheel)
 	var gamepad = {"attack": JOY_BUTTON_RIGHT_SHOULDER, "block": JOY_BUTTON_LEFT_SHOULDER,
 		"dodge": JOY_BUTTON_A, "skill": JOY_BUTTON_Y, "heal": JOY_BUTTON_X,
 		"lock_target": JOY_BUTTON_RIGHT_STICK, "pause": JOY_BUTTON_START}

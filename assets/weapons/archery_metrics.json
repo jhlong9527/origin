@@ -1,0 +1,60 @@
+{
+  "longbow": {
+    "mesh_nodes": 4,
+    "triangles": 9094,
+    "materials": 8,
+    "textures": 3,
+    "nodes": [
+      "BowGrip",
+      "BowString",
+      "Grip",
+      "LowerLimb",
+      "StringBottom",
+      "StringNock",
+      "StringTop",
+      "UpperLimb",
+      "Longbow"
+    ],
+    "bytes": 2684100,
+    "bounds_godot": {
+      "x": 0.1079,
+      "y": 1.7488,
+      "z": 0.2811
+    }
+  },
+  "arrow": {
+    "mesh_nodes": 1,
+    "triangles": 2006,
+    "materials": 6,
+    "textures": 6,
+    "nodes": [
+      "ArrowMesh",
+      "ArrowNock",
+      "ArrowTip",
+      "Arrow"
+    ],
+    "bytes": 5068000,
+    "bounds_godot": {
+      "x": 0.0987,
+      "y": 0.0925,
+      "z": 0.95
+    }
+  },
+  "quiver": {
+    "mesh_nodes": 1,
+    "triangles": 13811,
+    "materials": 11,
+    "textures": 9,
+    "nodes": [
+      "QuiverMesh",
+      "QuiverMouth",
+      "Quiver"
+    ],
+    "bytes": 9039192,
+    "bounds_godot": {
+      "x": 0.407,
+      "y": 0.928,
+      "z": 0.24
+    }
+  }
+}
