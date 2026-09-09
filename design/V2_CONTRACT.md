@@ -1,6 +1,6 @@
 # V2 refinement
 
-Keep existing project at D:/godot/briar_warden and existing input mappings.
+Keep existing project at D:/godot/warden/-666 and existing input mappings.
 Character and environment art should be visibly more detailed, in late sunset light.
 
 Combat timing target: player and boss actions ~18% shorter, not instant.
@@ -29,3 +29,4 @@ Pause, restart, parry interruption and death must clear/pause appropriate warnin
 
 Do not overwrite unrelated projects or user-added project.godot settings. Keep
 Compatibility renderer unless root explicitly switches it after measured tests.
+

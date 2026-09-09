@@ -1,1 +1,2 @@
-Read and execute D:\godot\briar_warden\design\task_environment_v5.md. Your task is ENVIRONMENT ONLY. Root owns character model generation and effects; Boss agent owns boss combat and poses. Need complete reference-inspired props in arena.gd, not merely inspect or repeat leaf correction.
+Read and execute D:\godot\warden\-666\design\task_environment_v5.md. Your task is ENVIRONMENT ONLY. Root owns character model generation and effects; Boss agent owns boss combat and poses. Need complete reference-inspired props in arena.gd, not merely inspect or repeat leaf correction.
+

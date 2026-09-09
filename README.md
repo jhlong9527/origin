@@ -108,7 +108,7 @@ Y 技能、X 治疗、右摇杆按下锁定、Start 暂停。此次实体输入�
 重新生成模型：
 
 ```powershell
-& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --python D:\godot\briar_warden\tools\build_characters.py
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --python D:\godot\warden\-666\tools\build_characters.py
 ```
 
 ## 验证
@@ -121,9 +121,9 @@ Y 技能、X 治疗、右摇杆按下锁定、Start 暂停。此次实体输入�
 `captures/` 保存实际 Godot 渲染截图，包括各动作、Boss 技能、多个窗口比例、暂停和结算。
 
 ```powershell
-& D:\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path D:\godot\briar_warden --script res://tests/combat_checks.gd --fixed-fps 60 -- --combat-test
-& D:\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path D:\godot\briar_warden --script res://tests/integration_checks.gd --fixed-fps 60 -- --combat-test
-& D:\godot\Godot_v4.7.2-stable_win64_console.exe --path D:\godot\briar_warden -- --visual-test
+& D:\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path D:\godot\warden\-666 --script res://tests/combat_checks.gd --fixed-fps 60 -- --combat-test
+& D:\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path D:\godot\warden\-666 --script res://tests/integration_checks.gd --fixed-fps 60 -- --combat-test
+& D:\godot\Godot_v4.7.2-stable_win64_console.exe --path D:\godot\warden\-666 -- --visual-test
 ```
 
 V3 在本机 RTX 3050、Compatibility、1440×810 的战斗特效捕获中记录 975 帧：
@@ -177,3 +177,4 @@ V5 回归：Boss 检查 35 项、战斗检查 30 项、键鼠集成 23 项、角
 游戏资源。中文字体使用本机系统字体。引擎版权见 `build/GODOT_LICENSE.txt`。
 本机未安装 Godot 导出模板，直接运行版使用随项目复制的现有 Godot 引擎二进制
 加载打包资源，因此体积大于标准 release 导出；无需打开编辑器。
+
