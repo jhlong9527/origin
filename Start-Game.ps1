@@ -5,3 +5,4 @@ if (-not (Test-Path -LiteralPath $enginePath)) {
     throw 'Godot executable was not found beside the project directory.'
 }
 Start-Process -FilePath $enginePath -ArgumentList @('--path', ('"' + $projectPath + '"')) -WorkingDirectory $projectPath
+
