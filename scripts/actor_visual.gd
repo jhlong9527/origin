@@ -3,6 +3,7 @@ extends Node3D
 const JOINT_NAMES: Array[String] = ["Hips", "Torso", "Head", "UpperArmR", "ForearmR", "HandR", "UpperArmL", "ForearmL", "HandL", "Shield", "ThighR", "ShinR", "FootR", "ThighL", "ShinL", "FootL", "Cape", "Tabard"]
 var is_boss := false
 var model: Node3D
+var reference_model: Node3D
 var joints: Dictionary = {}
 var rest_positions: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
@@ -17,6 +18,7 @@ var sword_node: Node3D
 var healing_flask: Node3D
 var bow_node: Node3D
 var quiver_node: Node3D
+var shield_node: Node3D
 var weapon_mode := "sword"
 var pending_weapon := "sword"
 
@@ -36,6 +38,22 @@ func setup(boss: bool = false) -> void:
 		return
 	model = packed.instantiate() as Node3D
 	add_child(model)
+	if not boss:
+		var reference_scene := load("res://assets/characters/wayfarer_reference.glb") as PackedScene
+		if reference_scene:
+			reference_model = reference_scene.instantiate() as Node3D
+			reference_model.name = "ReferenceAppearance"
+			model.find_child("Hips", true, false).add_child(reference_model)
+			# The supplied OBJ is a single static mesh. Match the gameplay rig height
+			# and keep it on the Hips pivot while the original rig remains the logic layer.
+			reference_model.scale = Vector3.ONE * 1.93
+			reference_model.position = Vector3(0.0, 0.03, 0.0)
+			for mesh in model.find_children("*", "MeshInstance3D", true, false):
+				var owner := mesh.get_parent()
+				var in_reference := mesh.find_parent("ReferenceAppearance") != null
+				var keep_equipment := owner and (owner.name in ["Sword", "Shield"] or owner.find_parent("Sword") != null or owner.find_parent("Shield") != null)
+				if not in_reference and not keep_equipment:
+					mesh.visible = false
 	for joint_name in JOINT_NAMES:
 		var node := model.find_child(joint_name, true, false) as Node3D
 		if node:
@@ -44,6 +62,7 @@ func setup(boss: bool = false) -> void:
 	blade_hilt = model.find_child("BladeHilt", true, false) as Node3D
 	blade_tip = model.find_child("BladeTip", true, false) as Node3D
 	sword_node = model.find_child("Sword", true, false) as Node3D
+	shield_node = model.find_child("Shield", true, false) as Node3D
 	var outline_shader := Shader.new()
 	outline_shader.code = "shader_type spatial; render_mode unshaded, cull_front; void vertex(){ VERTEX += NORMAL * 0.008; } void fragment(){ ALBEDO = vec3(0.027, 0.033, 0.031); }"
 	var outline := ShaderMaterial.new()
@@ -91,10 +110,19 @@ func set_weapon_state(mode: String, pending: String = "") -> void:
 	_set_gear_visibility(weapon_mode)
 
 
+func set_weapon_transition(progress: float, current: String, next_mode: String) -> void:
+	if is_boss:
+		return
+	var p := clampf(progress, 0.0, 1.0)
+	_set_gear_visibility(current if p < 0.50 else next_mode)
+
+
 func _set_gear_visibility(mode: String) -> void:
 	if is_instance_valid(sword_node): sword_node.visible = mode == "sword"
+	if is_instance_valid(shield_node): shield_node.visible = mode == "sword"
 	if is_instance_valid(bow_node): bow_node.visible = mode == "bow"
 	if is_instance_valid(quiver_node): quiver_node.visible = mode == "bow"
+	if is_instance_valid(healing_flask): healing_flask.visible = false
 
 
 func _build_flask(outline: ShaderMaterial) -> void:
@@ -122,6 +150,11 @@ func _build_flask(outline: ShaderMaterial) -> void:
 
 
 func _prepare_materials(node: Node, replacements: Dictionary, outline: ShaderMaterial) -> void:
+	# Preserve the supplied OBJ's PBR material graph and packed textures. The
+	# reference appearance is a single high-detail mesh; applying the gameplay
+	# palette pass would overwrite its albedo/normal/roughness maps.
+	if node != model and node.find_parent("ReferenceAppearance") != null:
+		return
 	if node is MeshInstance3D:
 		var instance := node as MeshInstance3D
 		for surface in range(instance.mesh.get_surface_count()):
@@ -318,6 +351,26 @@ func update_pose(state: String, progress: float, _direction: Vector3, moving_spe
 		hip_offset.z -= slash * recover * .16
 		pose["Cape"] = _angles(7.0 + sin(p * PI) * 26.0, -sin(p * TAU) * 14.0)
 		pose["Tabard"] = _angles(-8.0 - sin(p * PI) * 17.0)
+	if state == "bow_shot":
+		var draw := _step(.02, .30, p)
+		var hold := _step(.30, .72, p)
+		var release := _step(.72, 1.0, p)
+		_blend_pose(pose, {"Torso": _angles(-9,-8), "Head": _angles(2,-8), "UpperArmL": _angles(54,18,22), "ForearmL": _angles(68), "HandL": _angles(-18), "UpperArmR": _angles(28,-42,-18), "ForearmR": _angles(78,-8), "HandR": _angles(-32)}, draw)
+		_blend_pose(pose, {"Torso": _angles(-13,-13), "Head": _angles(5,-13), "UpperArmL": _angles(62,20,25), "ForearmL": _angles(77,2), "HandL": _angles(-23), "UpperArmR": _angles(35,-58,-22), "ForearmR": _angles(93,-12), "HandR": _angles(-38)}, hold)
+		_blend_pose(pose, {"Torso": _angles(-8,-7), "UpperArmL": _angles(45,16,19), "ForearmL": _angles(60), "UpperArmR": _angles(24,-34,-14), "ForearmR": _angles(66), "HandR": _angles(-25)}, release)
+		hip_offset.y -= .055 * hold
+		pose["Cape"] = _angles(9.0 + hold * 4.0, -hold * 3.0)
+	if state == "bow_skill":
+		var tuck := sin(clampf((p - .08) / .52, 0.0, 1.0) * PI)
+		var land := _step(.55, .72, p)
+		_blend_pose(pose, {"Torso": _angles(-42), "Head": _angles(24), "UpperArmL": _angles(72,18,22), "ForearmL": _angles(104), "UpperArmR": _angles(28,-40,-15), "ForearmR": _angles(112), "ThighR": _angles(92), "ShinR": _angles(-118), "ThighL": _angles(84), "ShinL": _angles(-112)}, tuck)
+		_blend_pose(pose, {"Torso": _angles(-16,-7), "Head": _angles(8), "UpperArmL": _angles(52,18,22), "ForearmL": _angles(70), "UpperArmR": _angles(30,-42,-16), "ForearmR": _angles(78), "ThighR": _angles(44), "ShinR": _angles(-58), "ThighL": _angles(37), "ShinL": _angles(-49)}, land)
+		root_roll = -PI * .90 * tuck
+		root_height = .20 * tuck - .08 * land
+	if state == "weapon_switch":
+		var switch_p := _step(.0, 1.0, p)
+		_blend_pose(pose, {"Torso": _angles(-8, -6), "UpperArmR": _angles(28,-15,-12), "ForearmR": _angles(74), "UpperArmL": _angles(22,14,16), "ForearmL": _angles(58)}, switch_p)
+		hip_offset.y -= sin(p * PI) * .035
 	if state == "block":
 		_blend_pose(pose, {"Torso": _angles(-13,10), "Head": _angles(4,-10), "UpperArmL": _angles(45,-17,13), "ForearmL": _angles(88,-13,0), "HandL": _angles(0,0,-8), "Shield": _angles(-122,5,0), "UpperArmR": _angles(24,-17,-14), "ForearmR": _angles(56)}, 1.0)
 		hip_offset.y -= .07

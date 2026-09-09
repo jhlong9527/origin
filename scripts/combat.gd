@@ -741,7 +741,10 @@ func _clear_path(from: Vector3, to: Vector3) -> bool:
 func _update_visuals(delta: float) -> void:
 	if is_instance_valid(player_visual):
 		if player_visual.has_method("set_weapon_state"):
-			player_visual.set_weapon_state(weapon_mode, pending_weapon)
+			if player_state == "weapon_switch" and player_visual.has_method("set_weapon_transition"):
+				player_visual.set_weapon_transition(clampf(player_time / WEAPON_SWITCH_DURATION, 0.0, 1.0), weapon_mode, pending_weapon)
+			else:
+				player_visual.set_weapon_state(weapon_mode, pending_weapon)
 		var visual_direction := dodge_direction if player_state == "dodge" else player_direction
 		player_visual.rotation.y = atan2(-visual_direction.x, -visual_direction.z)
 		var pose := player_state
