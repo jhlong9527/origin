@@ -1,7 +1,7 @@
 # Briar Warden Git backup guide
 
 This project is backed up in the local Git repository at `D:\godot\warden\-666`.
-The initial snapshot is commit `c7617ac` on branch `main`.
+The repository baseline is commit `e7824d0` on branch `main`; local path and launcher fixes are tracked in later commits.
 
 ## Daily checkpoint
 
@@ -50,4 +50,5 @@ git commit -m "chore: track source assets with Git LFS"
 ```
 
 The repository intentionally ignores `.godot/`, `build/`, `captures/`, generated imports, logs, and Blender autosaves. Keep `.blend` and `.glb` source assets under version control; regenerate exports when needed.
+
 
