@@ -368,7 +368,9 @@ func _tick_player(delta: float, move: Vector3) -> void:
 				if player_time >= 0.70 and not _bow_landed:
 					_bow_landed = true
 					combat_event.emit("bow_land", player.position, _bow_skill_direction, 1.0)
-				while _bow_shots_fired < BOW_SKILL_SHOTS.size() and player_time >= BOW_SKILL_SHOTS[_bow_shots_fired]:
+				# Volley begins only after the backflip has completed and the landing
+				# event has fired, so every arrow is visibly shot from the grounded pose.
+				while _bow_landed and _bow_shots_fired < BOW_SKILL_SHOTS.size() and player_time >= BOW_SKILL_SHOTS[_bow_shots_fired]:
 					_bow_shots_fired += 1
 					_launch_arrow(true)
 			"dodge":
@@ -1011,3 +1013,4 @@ func visual_state() -> Dictionary:
 	return {"generation": encounter_generation, "time": simulation_time, "ended": ended,
 		"warning": warning, "boss_active": boss_active,
 		"projectiles": projectiles, "arrows": arrows, "shockwaves": _shockwaves}
+

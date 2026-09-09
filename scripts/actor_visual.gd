@@ -361,11 +361,15 @@ func update_pose(state: String, progress: float, _direction: Vector3, moving_spe
 		hip_offset.y -= .055 * hold
 		pose["Cape"] = _angles(9.0 + hold * 4.0, -hold * 3.0)
 	if state == "bow_skill":
-		var tuck := sin(clampf((p - .08) / .52, 0.0, 1.0) * PI)
+		# The skill is a full backward rotation. The gameplay state keeps the
+		# capsule invulnerable during the airborne section; the visual mirrors
+		# that timing with a complete 360 degree flip and a low landing settle.
+		var airborne_p := clampf((p - .08) / .52, 0.0, 1.0)
+		var tuck := sin(airborne_p * PI)
 		var land := _step(.55, .72, p)
 		_blend_pose(pose, {"Torso": _angles(-42), "Head": _angles(24), "UpperArmL": _angles(72,18,22), "ForearmL": _angles(104), "UpperArmR": _angles(28,-40,-15), "ForearmR": _angles(112), "ThighR": _angles(92), "ShinR": _angles(-118), "ThighL": _angles(84), "ShinL": _angles(-112)}, tuck)
 		_blend_pose(pose, {"Torso": _angles(-16,-7), "Head": _angles(8), "UpperArmL": _angles(52,18,22), "ForearmL": _angles(70), "UpperArmR": _angles(30,-42,-16), "ForearmR": _angles(78), "ThighR": _angles(44), "ShinR": _angles(-58), "ThighL": _angles(37), "ShinL": _angles(-49)}, land)
-		root_roll = -PI * .90 * tuck
+		root_roll = -TAU * airborne_p
 		root_height = .20 * tuck - .08 * land
 	if state == "weapon_switch":
 		var switch_p := _step(.0, 1.0, p)
