@@ -43,17 +43,14 @@ func setup(boss: bool = false) -> void:
 		if reference_scene:
 			reference_model = reference_scene.instantiate() as Node3D
 			reference_model.name = "ReferenceAppearance"
-			model.find_child("Hips", true, false).add_child(reference_model)
-			# The supplied OBJ is a single static mesh. Match the gameplay rig height
-			# and keep it on the Hips pivot while the original rig remains the logic layer.
+			# The supplied OBJ has no armature or skin weights. Keep it available as
+			# the high-detail binding source, but do not display it over the animated
+			# rig: doing so makes the body separate from the sword and shield hands.
+			add_child(reference_model)
+			reference_model.visible = false
+			# Runtime uses the articulated model below until the reference is rigged.
 			reference_model.scale = Vector3.ONE * 1.93
 			reference_model.position = Vector3(0.0, 0.03, 0.0)
-			for mesh in model.find_children("*", "MeshInstance3D", true, false):
-				var owner := mesh.get_parent()
-				var in_reference := mesh.find_parent("ReferenceAppearance") != null
-				var keep_equipment := owner and (owner.name in ["Sword", "Shield"] or owner.find_parent("Sword") != null or owner.find_parent("Shield") != null)
-				if not in_reference and not keep_equipment:
-					mesh.visible = false
 	for joint_name in JOINT_NAMES:
 		var node := model.find_child(joint_name, true, false) as Node3D
 		if node:
@@ -551,4 +548,6 @@ func set_parry_glow(enabled: bool) -> void:
 		blade_material.albedo_color = Color("f4b94c") if enabled else Color("aac7ce")
 		blade_material.emission = Color("e69228")
 		blade_material.emission_energy_multiplier = .3 if enabled else 0.0
+
+
 
