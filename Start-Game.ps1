@@ -6,3 +6,4 @@ if (-not (Test-Path -LiteralPath $enginePath)) {
 }
 Start-Process -FilePath $enginePath -ArgumentList @('--path', ('"' + $projectPath + '"')) -WorkingDirectory $projectPath
 
+
