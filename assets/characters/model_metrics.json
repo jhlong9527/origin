@@ -1,0 +1,26 @@
+{
+  "wayfarer": {
+    "before": {
+      "triangles": 3803,
+      "mesh_nodes": 91,
+      "surface_draws_per_color_pass": 91
+    },
+    "after": {
+      "triangles": 33348,
+      "mesh_nodes": 23,
+      "surface_draws_per_color_pass": 23
+    }
+  },
+  "thorn_lord": {
+    "before": {
+      "triangles": 4092,
+      "mesh_nodes": 101,
+      "surface_draws_per_color_pass": 101
+    },
+    "after": {
+      "triangles": 34096,
+      "mesh_nodes": 22,
+      "surface_draws_per_color_pass": 22
+    }
+  }
+}

@@ -1,0 +1,1 @@
+Read design/task_boss_v5.md. New task is Boss combat/poses, not mouse inputs (those are complete). Please implement the new user's three boss move descriptions. Own only boss sections of combat.gd, actor_visual.gd, main.gd and relevant tests. Root owns character Blender build and effects.gd. Environment agent owns arena. Stop spawning subagents. Report timing/state interface.

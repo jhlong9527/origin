@@ -1,0 +1,11 @@
+{
+	"device": "NVIDIA GeForce RTX 3050",
+	"draw_calls_median": 504,
+	"draw_calls_p95": 506,
+	"failures": 1,
+	"frames": 1083,
+	"median_ms": 16.586,
+	"p95_ms": 32.07,
+	"renderer": "gl_compatibility",
+	"viewport": "(1440, 810)"
+}

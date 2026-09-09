@@ -1,0 +1,10 @@
+{
+  "v1": {
+    "pair_render_draw_calls": 769.0,
+    "rendered_primitives": 31582.0
+  },
+  "v2": {
+    "pair_render_draw_calls": 181.0,
+    "rendered_primitives": 143726.0
+  }
+}

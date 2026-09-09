@@ -1,0 +1,12 @@
+{
+  "wayfarer": {
+    "triangles": 38308,
+    "mesh_nodes": 63,
+    "surface_draws_per_color_pass": 64
+  },
+  "thorn_lord": {
+    "triangles": 38440,
+    "mesh_nodes": 49,
+    "surface_draws_per_color_pass": 50
+  }
+}

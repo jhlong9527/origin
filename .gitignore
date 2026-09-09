@@ -1,0 +1,24 @@
+# Godot editor and imported cache
+.godot/
+*.import
+*.ctex
+*.md5
+*.cache
+
+# Local builds and exported packages
+build/
+*.pck
+
+# Blender automatic backup files
+*.blend1
+*.blend2
+
+# Runtime and test output
+*.log
+captures/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
