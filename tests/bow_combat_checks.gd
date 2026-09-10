@@ -112,7 +112,7 @@ func _run() -> void:
 	await _advance(0.44)
 	_check(events.has("bow_land") and events.count("bow_release") == 0, "Backflip lands before the first volley arrow")
 	var retreat: float = combat.player.position.z - before.z
-	_check(retreat > .85 and retreat < 1.15, "Backflip retreats about one metre with reduced horizontal travel")
+	_check(retreat > 2.45 and retreat < 2.55, "Backflip retreats about 2.5 metres before the grounded volley")
 	await _advance(0.20)
 	_check(events.count("bow_release") == 1, "First volley arrow follows landing recovery")
 	await _advance(0.24)

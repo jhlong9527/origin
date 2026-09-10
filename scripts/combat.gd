@@ -38,7 +38,9 @@ const BOW_SKILL_DURATION := 1.70
 const BOW_SKILL_SHOTS := [0.92, 1.14, 1.36]
 const BOW_FLIP_START := 0.12
 const BOW_FLIP_LAND := 0.70
-const BOW_FLIP_SPEED := 2.8
+const BOW_FLIP_DISTANCE := 2.5
+# The integral of the sine speed curve sets the unobstructed retreat distance.
+const BOW_FLIP_SPEED := BOW_FLIP_DISTANCE * PI / (2.0 * (BOW_FLIP_LAND - BOW_FLIP_START))
 const ARROW_SPEED := 24.0
 const ARROW_GRAVITY := 4.5
 const ARROW_DAMAGE := 37.0
