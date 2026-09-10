@@ -36,6 +36,9 @@ const BOW_SHOT_DURATION := 1.05
 const BOW_RELEASE_TIME := 0.72
 const BOW_SKILL_DURATION := 1.70
 const BOW_SKILL_SHOTS := [0.92, 1.14, 1.36]
+const BOW_FLIP_START := 0.12
+const BOW_FLIP_LAND := 0.70
+const BOW_FLIP_SPEED := 2.8
 const ARROW_SPEED := 24.0
 const ARROW_GRAVITY := 4.5
 const ARROW_DAMAGE := 37.0
@@ -119,7 +122,10 @@ func setup(view_camera: Camera3D) -> void:
 	var visual_script = load("res://scripts/actor_visual.gd")
 	if visual_script:
 		player_visual = Node3D.new()
-		player_visual.set_script(visual_script)
+		var hero_script = visual_script
+		if ProjectSettings.get_setting("gameplay/hero_model", "high_detail") == "high_detail" and not OS.get_cmdline_user_args().has("--legacy-hero"):
+			hero_script = load("res://scripts/rigged_hero_visual.gd")
+		player_visual.set_script(hero_script)
 		player.add_child(player_visual)
 		player_visual.setup(false)
 		boss_visual = Node3D.new()
@@ -360,12 +366,12 @@ func _tick_player(delta: float, move: Vector3) -> void:
 						_bow_shots_fired = 1
 						_launch_arrow(false)
 			"bow_skill":
-				if player_time >= 0.12 and player_time < 0.70:
+				if player_time >= BOW_FLIP_START and player_time < BOW_FLIP_LAND:
 					# Backward travel follows the committed cast direction and uses the
 					# same capsule collision as a normal roll; the visual supplies lift.
-					var airborne := (player_time - 0.12) / 0.58
-					horizontal = -_bow_skill_direction * (4.6 * sin(airborne * PI))
-				if player_time >= 0.70 and not _bow_landed:
+					var airborne := (player_time - BOW_FLIP_START) / (BOW_FLIP_LAND - BOW_FLIP_START)
+					horizontal = -_bow_skill_direction * (BOW_FLIP_SPEED * sin(airborne * PI))
+				if player_time >= BOW_FLIP_LAND and not _bow_landed:
 					_bow_landed = true
 					combat_event.emit("bow_land", player.position, _bow_skill_direction, 1.0)
 				# Volley begins only after the backflip has completed and the landing
@@ -817,6 +823,9 @@ func _launch_arrow(skill: bool) -> void:
 	var target := _bow_skill_target if skill else _arrow_aim_target(facing)
 	var shoulder := player.global_position + Vector3.UP * 1.32
 	var at := shoulder + facing * 0.70
+	if player_visual.has_method("get_arrow_origin"):
+		at = player_visual.get_arrow_origin()
+		shoulder.y = at.y
 	var displacement := target - at
 	var flat := Vector3(displacement.x, 0.0, displacement.z)
 	var flight_seconds := maxf(flat.length() / ARROW_SPEED, 0.06)

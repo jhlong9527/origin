@@ -1,0 +1,112 @@
+{
+  "source_vertices": 149998,
+  "source_triangles": 300000,
+  "bones": [
+    "Hips",
+    "Torso",
+    "Head",
+    "UpperArmR",
+    "ForearmR",
+    "HandR",
+    "UpperArmL",
+    "ForearmL",
+    "HandL",
+    "ThighR",
+    "ShinR",
+    "FootR",
+    "ThighL",
+    "ShinL",
+    "FootL",
+    "Cape",
+    "Tabard",
+    "Sword",
+    "Shield"
+  ],
+  "parts": {
+    "HeroBody": 270819,
+    "HeroSword": 14124,
+    "HeroShield": 23035
+  },
+  "clips": {
+    "idle": {
+      "min_y": 0.018,
+      "frames": 121
+    },
+    "move": {
+      "min_y": 0.018,
+      "frames": 36
+    },
+    "bow_idle": {
+      "min_y": 0.018,
+      "frames": 121
+    },
+    "bow_move": {
+      "min_y": 0.018,
+      "frames": 36
+    },
+    "attack0": {
+      "min_y": 0.018,
+      "frames": 36
+    },
+    "attack1": {
+      "min_y": 0.018,
+      "frames": 39
+    },
+    "attack2": {
+      "min_y": 0.018,
+      "frames": 50
+    },
+    "skill": {
+      "min_y": 0.018,
+      "frames": 55
+    },
+    "block": {
+      "min_y": 0.018,
+      "frames": 61
+    },
+    "parry": {
+      "min_y": 0.018,
+      "frames": 33
+    },
+    "dodge": {
+      "min_y": 0.017999999999999988,
+      "frames": 32
+    },
+    "hurt": {
+      "min_y": 0.018,
+      "frames": 25
+    },
+    "stagger": {
+      "min_y": 0.018,
+      "frames": 75
+    },
+    "dead": {
+      "min_y": 0.017999999999999988,
+      "frames": 61
+    },
+    "heal": {
+      "min_y": 0.018,
+      "frames": 72
+    },
+    "weapon_switch": {
+      "min_y": 0.018,
+      "frames": 38
+    },
+    "bow_draw": {
+      "min_y": 0.018,
+      "frames": 64
+    },
+    "bow_draw_move": {
+      "min_y": 0.018,
+      "frames": 64
+    },
+    "bow_skill": {
+      "min_y": 0.018,
+      "frames": 103
+    }
+  },
+  "height_m": 1.8662060499191284,
+  "coordinate_system": "Godot +Y up -Z forward",
+  "weights": "anatomical regions with 48 topology diffusion passes; max 4 normalized influences",
+  "repairs": "shield-side forearm reconstructed from the intact opposite arm; contact seams capped"
+}

@@ -361,13 +361,13 @@ func update_pose(state: String, progress: float, _direction: Vector3, moving_spe
 		# The skill is a full backward rotation. The gameplay state keeps the
 		# capsule invulnerable during the airborne section; the visual mirrors
 		# that timing with a complete 360 degree flip and a low landing settle.
-		var airborne_p := clampf((p - .08) / .52, 0.0, 1.0)
+		var airborne_p := clampf((p * 1.70 - .12) / .58, 0.0, 1.0)
 		var tuck := sin(airborne_p * PI)
-		var land := _step(.55, .72, p)
+		var land := _step(.70 / 1.70, .74 / 1.70, p) * (1.0 - _step(.76 / 1.70,.88 / 1.70,p))
 		_blend_pose(pose, {"Torso": _angles(-42), "Head": _angles(24), "UpperArmL": _angles(72,18,22), "ForearmL": _angles(104), "UpperArmR": _angles(28,-40,-15), "ForearmR": _angles(112), "ThighR": _angles(92), "ShinR": _angles(-118), "ThighL": _angles(84), "ShinL": _angles(-112)}, tuck)
 		_blend_pose(pose, {"Torso": _angles(-16,-7), "Head": _angles(8), "UpperArmL": _angles(52,18,22), "ForearmL": _angles(70), "UpperArmR": _angles(30,-42,-16), "ForearmR": _angles(78), "ThighR": _angles(44), "ShinR": _angles(-58), "ThighL": _angles(37), "ShinL": _angles(-49)}, land)
-		root_roll = -TAU * airborne_p
-		root_height = .20 * tuck - .08 * land
+		root_roll = TAU * airborne_p
+		root_height = .50 * 4.0 * airborne_p * (1.0 - airborne_p)
 	if state == "weapon_switch":
 		var switch_p := _step(.0, 1.0, p)
 		_blend_pose(pose, {"Torso": _angles(-8, -6), "UpperArmR": _angles(28,-15,-12), "ForearmR": _angles(74), "UpperArmL": _angles(22,14,16), "ForearmL": _angles(58)}, switch_p)
@@ -426,7 +426,9 @@ func update_pose(state: String, progress: float, _direction: Vector3, moving_spe
 	var scaled_pivot := 0.87 * (1.47 if is_boss else 1.0)
 	model.rotation.x = root_roll
 	model.position = Vector3(0,scaled_pivot + root_height,0) - model.basis * Vector3(0,scaled_pivot,0)
-	if state != "dodge" and state != "dead":
+	if state == "bow_skill" and p * 1.70 > .12 and p * 1.70 < .70:
+		_ground_tumbling_body()
+	elif state != "dodge" and state != "dead":
 		_ground_support()
 	else:
 		_ground_tumbling_body()

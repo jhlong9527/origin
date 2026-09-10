@@ -28,3 +28,7 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
 environment/defaults/default_clear_color=Color(0.085, 0.13, 0.15, 1)
+
+[gameplay]
+
+hero_model="high_detail"

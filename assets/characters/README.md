@@ -1,5 +1,9 @@
 # Original articulated character models — revision 2
 
+当前默认主角为用户提供的高精度网格重新蒙皮版本：`wayfarer_rigged.glb`。
+可编辑 Blender 源文件在 `source_high_detail/wayfarer_rigged.blend`；说明与回退方式见
+`../../docs/高精度主角与动画.md`。以下记录描述原有角色资源，原文件保持不变。
+
 These assets were created locally in Blender 5.2 for Briar Warden. They contain no external character assets. The `.blend` files are editable sources; Godot loads the identically named `.glb` files.
 
 Revision 2 replaces the broad prototype surfaces with a shaped cuirass and bascinet, layered curved pauldrons, vambrace/cuisse/greave details, articulated knuckles, overlapping sabatons, rolled shield edging and convex enamel, raised tree heraldry, curved quillons and spiral grip wrapping, and thick folded cloth. The lord's crown and shoulder thorns follow curved, tapered branches.

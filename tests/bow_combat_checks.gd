@@ -111,7 +111,8 @@ func _run() -> void:
 	_check(combat.hp == combat.PLAYER_HP, "Airborne backflip has a brief invulnerability window")
 	await _advance(0.44)
 	_check(events.has("bow_land") and events.count("bow_release") == 0, "Backflip lands before the first volley arrow")
-	_check(combat.player.position.z > before.z + 1.2, "Backflip retreats away from committed aiming direction")
+	var retreat: float = combat.player.position.z - before.z
+	_check(retreat > .85 and retreat < 1.15, "Backflip retreats about one metre with reduced horizontal travel")
 	await _advance(0.20)
 	_check(events.count("bow_release") == 1, "First volley arrow follows landing recovery")
 	await _advance(0.24)
